@@ -1,9 +1,13 @@
 #include "Arduino.h"
 //#include <PID_v1.h>
+#include "motorControl.h"
 #include "PID_v1.h"
 //Conection
 
-//Servo - direction
+
+
+
+
 
 //Analog pot ->  A0
 //l298N ENB  -> D7
@@ -21,12 +25,13 @@
 //l298N ENA  -> D12
 //l298N IN1  -> D11
 //l298N IN2  -> D8
-#define ENA  12
-#define IN1  11
-#define IN2  8
+
+
 
 //Define Variables we'll be connecting to
 double Setpoint_Servo,Setpoint_Motor, Input, Output, Output_min, Output_max,Output_Motor;
+uint8_t test = 1;
+motorControl motorCtr(test);
 
 //Specify the links and initial tuning parameters
 double Kp=0.4, Ki=0.2, Kd=0.01;
@@ -36,17 +41,12 @@ String BufferSerialInput = "";         // a string to hold incoming data
 String rcvNumberString = "";
 boolean FlagBufferInput = false;  // whether the string is complete
 
+void serialEvent();
 
 void setup() {
-  pinMode(ENA, OUTPUT);
-  pinMode(IN1, OUTPUT);
-  pinMode(IN2, OUTPUT);
-  pinMode(ENB, OUTPUT);
-  pinMode(IN3, OUTPUT);
-  pinMode(IN4, OUTPUT);
+
 
   Serial.begin(115200);
-
 
    Setpoint_Servo = 450;
    Setpoint_Motor = 0;
@@ -88,11 +88,7 @@ void loop() {
 	    FlagBufferInput = false;
 	}
 
-
-	//ControlServo();
-	//ControlMotor();
-
-
+  motorCtr.updateSpeed( Setpoint_Motor );
 
 }
 
@@ -114,47 +110,4 @@ void serialEvent() {
       FlagBufferInput = true;
     }
   }
-}
-
-void ControlServo(){
-	Input = analogRead(SERVO_POT);
-	if(PID_Direction.Compute()){
-	  Serial.print(Setpoint_Servo);
-	  Serial.print("  -  ");
-	  Serial.println(Input);
-
-	  //If PID if computed
-	  if(Output>=0){
-		  digitalWrite(IN3, HIGH);
-		  digitalWrite(IN4, LOW);
-	  }
-	  else{
-		  digitalWrite(IN3, LOW);
-		  digitalWrite(IN4, HIGH);
-
-	  }
-
-	  analogWrite(ENB,abs(Output));
-	  //ControlMotor();
-	}
-}
-
-void ControlMotor(){
-
-//If PID if computed
-	Output_Motor = Setpoint_Motor;
-	Serial.println(Setpoint_Motor);
-
-	  if(Output_Motor>=0){
-		  digitalWrite(IN1, HIGH);
-		  digitalWrite(IN2, LOW);
-	  }
-	  else{
-		  digitalWrite(IN1, LOW);
-		  digitalWrite(IN2, HIGH);
-
-	  }
-
-	  analogWrite(ENA,abs(Output_Motor));
-
 }

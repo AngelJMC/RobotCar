@@ -1,0 +1,2 @@
+/home/angel/Proyectos/RobotCar/Firmware/src/main.cpp:1:21: fatal error: Arduino.h: No existe el archivo o el directorio
+compilation terminated.
