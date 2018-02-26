@@ -8,7 +8,7 @@ More information in the project [Wiki page](https://github.com/AngelJMC/RobotCar
 
 - [AMP 2.6 board](https://github.com/ArduPilot/ardupilot_wiki/blob/master/common/source/docs/common-apm25-and-26-overview.rst). You can use Arduino Mega 2560.
 - [L298 Driver](http://candy-ho.com/Drivers/Guia%20de%20Uso%20L298.pdf), It is a dual H-bridge to control de DC motor.
-- [LM2596 regulator] Step-down DC-DC converter module, ~12v LiPo battery to 5v.
+- [LM2596 regulator](https://http2.mlstatic.com/modulo-step-down-dc-dc-mini-regulador-de-voltaje-lm2596-D_NQ_NP_828400-MLC26118955337_102017-F.jpg) Step-down DC-DC converter module, ~12v LiPo battery to 5v.
 
 Atom with [PlatformIO](https://platformio.org/) plugin. If you prefer, you can use Arduino IDE.
 
