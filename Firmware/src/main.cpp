@@ -18,10 +18,11 @@
 
 #define SERVO_INPUT 11
 
+#define _SENS_COEF 6
 //Define Variables we'll be connecting to
 double _setPointMotor = 0, _input = 0, _output = 0;
 //Specify the links and initial tuning parameters
-double Kp=1.1, Ki=0.7, Kd=0.001;
+double Kp=1.2, Ki=0.7, Kd=0.001;
 
 Arduino_Mega_ISR_Registry isr_registry;
 APM_PPMDecoder APM_RC;
@@ -37,7 +38,6 @@ long _oldPosition;
 
 
 uint8_t test = 1;
-// motorControl motorCtr(test);
 int16_t _SetpointMotor=0;
 uint32_t _delayMs=100;
 
@@ -57,13 +57,10 @@ void serialEvent();
 void setup() {
   isr_registry.init();
   APM_RC.Init(&isr_registry);          // APM Radio initialization
-  servoSteering.attach(11);  // attaches the servo on pin 9 to the servo object
-
+  servoSteering.attach(SERVO_INPUT);  // attaches the servo on pin 9 to the servo object
   Serial.begin(115200);
-
-
-   pidMtr.SetMode(AUTOMATIC);
-   pidMtr.SetOutputLimits(-255, 255);
+  pidMtr.SetMode(AUTOMATIC);
+  pidMtr.SetOutputLimits(-255, 255);
   // reserve 20 bytes for the inputString:
   BufferSerialInput.reserve(20);
 
@@ -95,16 +92,16 @@ void loop() {
 	}
 
    if (APM_RC.GetState() == 1) {
-       Serial.print("CH:");
-       for(int i = 0; i < 4; i++) {
-           Serial.print(APM_RC.InputCh(i));                    // Print channel values
-           Serial.print(",");
-       }
-       Serial.println();
+      //  Serial.print("CH:");
+      //  for(int i = 0; i < 4; i++) {
+      //      Serial.print(APM_RC.InputCh(i));                    // Print channel values
+      //      Serial.print(",");
+      //  }
+      //  Serial.println();
 
-      servoVal = map(APM_RC.InputCh(0), 980, 2100, 170, 50);     // scale it to use it with the servo (value between 0 and 180)
+      servoVal = map(APM_RC.InputCh(0), 980, 2035, 180, 105);     // scale it to use it with the servo (value between 0 and 180)
       servoSteering.write(servoVal);                  // sets the servo position according to the scaled value
-      speedVal = map(APM_RC.InputCh(1), 915, 2000, -255, 255);     // scale it to use it with the servo (value between 0 and 180)
+      speedVal = map(APM_RC.InputCh(1), 920, 2015, -255, 255);     // scale it to use it with the servo (value between 0 and 180)
    }
 
    updateSpeed(_delayMs, speedVal );
@@ -140,49 +137,46 @@ int32_t getSpeed( void ){
       diffCount = newPosition - _oldPosition;
       _oldPosition = newPosition;
     }
-return diffCount*3;
+return diffCount* _SENS_COEF;
 }
 
+void printInfoPID(){
+  Serial.print(" encod: ");
+  Serial.print(_oldPosition);
+  Serial.print(" refe: ");
+  Serial.print(_setPointMotor);
+  Serial.print("  inp:");
+  Serial.print(_input);
+  Serial.print("  out:");
+  Serial.print(_output);
+  Serial.print("  control:");
+  Serial.println(abs(_output));
+}
 
 void updateSpeed(uint32_t delay, double reference){
-  uint8_t pwmVal;
 
   if (((millis() - _lastMs) >= delay)) {
-     _setPointMotor = reference;
-     _input = getSpeed();
-     pidMtr.Compute();
-     //pwmVal = map(_output, 0, 1300, 0, 255);
+    _lastMs = millis();
+    _setPointMotor = reference;
 
-     Serial.print("Tms: ");
-     Serial.print(_lastMs);
+    if(reference > -10 && reference <10){
+       _setPointMotor = 0;
+    }
+    else{
+      _setPointMotor = reference;
+    }
 
-     Serial.print(" encod: ");
-     Serial.print(_oldPosition);
+    _input = getSpeed();
+    pidMtr.Compute();
+    driverMtr.setSpeed(abs(_output));
 
-    Serial.print(" refe: ");
-    Serial.print(reference);
-
-    Serial.print("  inp:");
-    Serial.print(_input);
-
-    Serial.print("  out:");
-    Serial.print(_output);
-
-    // pwmVal = abs(_output);
-    pwmVal = abs(speedVal);
-    Serial.print("  control:");
-    Serial.println(pwmVal);
-driverMtr.setSpeed(pwmVal);
-if(reference >=0){
-    //if(_output >=0){
-    driverMtr.forward(); //forward
+    if(_output >=0){
+      driverMtr.forward(); //forward
     }
     else{
       driverMtr.backward(); //BACKWARD
     }
 
-
-    _lastMs = millis();
-
+    printInfoPID();
   }
 }
