@@ -1,4 +1,16 @@
-#include "Arduino.h"
+// #include "Arduino.h"
+#include <FastSerial.h>
+#include <SPI.h>
+#include <I2C.h>
+#include <Arduino_Mega_ISR_Registry.h>
+#include <AP_PeriodicProcess.h>
+#include <AP_InertialSensor.h>
+#include <AP_GPS.h>
+#include <AP_Math.h>
+#include <AP_Common.h>
+#include <AP_Compass.h>
+#include <AP_Buffer.h>
+
 #include "Encoder.h"
 #include "L298N.h"
 #include "Servo.h"
