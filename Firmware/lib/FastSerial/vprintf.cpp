@@ -49,14 +49,14 @@ extern "C" {
 }
 
 // workaround for GCC bug c++/34734
-#undef PROGMEM 
-#define PROGMEM __attribute__(( section(".progmem.data") )) 
-#undef PSTR 
+#undef PROGMEM
+#define PROGMEM __attribute__(( section(".progmem.data") ))
+#undef PSTR
   /* Need const type for progmem - new for avr-gcc 4.6 */
  #if __GNUC__ == 4 && __GNUC_MINOR__ > 5
-#define PSTR(s) (__extension__({static const prog_char __c[] PROGMEM = (s); &__c[0];})) 
+#define PSTR(s) (__extension__({static const char __c[] PROGMEM = (s); &__c[0];}))
  #else
-#define PSTR(s) (__extension__({static prog_char __c[] PROGMEM = (s); &__c[0];})) 
+#define PSTR(s) (__extension__({static char __c[] PROGMEM = (s); &__c[0];}))
  #endif
 
 #ifdef GETBYTE
@@ -147,7 +147,7 @@ BetterStream::_vprintf (unsigned char in_progmem, const char *fmt, va_list ap)
                 flags = 0;
                 width = 0;
                 prec = 0;
-                
+
                 /*
                  * Process format adjustment characters, precision, width.
                  */
@@ -196,7 +196,7 @@ BetterStream::_vprintf (unsigned char in_progmem, const char *fmt, va_list ap)
                                 if (c == 'h')
                                         continue;
                         }
-            
+
                         break;
                 } while ( (c = GETBYTE (in_progmem, 1, fmt)) != 0);
 
@@ -239,7 +239,7 @@ BetterStream::_vprintf (unsigned char in_progmem, const char *fmt, va_list ap)
                         }
                         exp = __ftoa_engine (va_arg(ap,double), (char *)buf, vtype, ndigs);
                         vtype = buf[0];
-    
+
                         sign = 0;
                         if ((vtype & FTOA_MINUS) && !(vtype & FTOA_NAN))
                                 sign = '-';
@@ -266,7 +266,7 @@ BetterStream::_vprintf (unsigned char in_progmem, const char *fmt, va_list ap)
                                 p = PSTR("inf");
                                 if (vtype & FTOA_NAN)
                                         p = PSTR("nan");
-                                while ( (ndigs = pgm_read_byte((const prog_char *)p)) != 0) {
+                                while ( (ndigs = pgm_read_byte((const char *)p)) != 0) {
                                         if (flags & FL_FLTUPP)
                                                 ndigs += 'I' - 'i';
                                         write(ndigs);
@@ -295,7 +295,7 @@ BetterStream::_vprintf (unsigned char in_progmem, const char *fmt, va_list ap)
                                                 ? prec - exp : 0;       /* fractional part length  */
                                 }
                         }
-    
+
                         /* Conversion result length, width := free space length */
                         if (flags & FL_FLTFIX)
                                 n = (exp>0 ? exp+1 : 1);
@@ -304,7 +304,7 @@ BetterStream::_vprintf (unsigned char in_progmem, const char *fmt, va_list ap)
                         if (sign) n += 1;
                         if (prec) n += prec + 1;
                         width = width > n ? width - n : 0;
-    
+
                         /* Output before first digit    */
                         if (!(flags & (FL_LPAD | FL_ZFILL))) {
                                 while (width) {
@@ -319,7 +319,7 @@ BetterStream::_vprintf (unsigned char in_progmem, const char *fmt, va_list ap)
                                         width--;
                                 }
                         }
-    
+
                         if (flags & FL_FLTFIX) {                /* 'f' format           */
 
                                 n = exp > 0 ? exp : 0;          /* exponent of left digit */
@@ -339,7 +339,7 @@ BetterStream::_vprintf (unsigned char in_progmem, const char *fmt, va_list ap)
                                                 flags = '1';
                                         }
                                 write(flags);
-        
+
                         } else {                                /* 'e(E)' format        */
 
                                 /* mantissa     */
@@ -507,7 +507,7 @@ BetterStream::_vprintf (unsigned char in_progmem, const char *fmt, va_list ap)
                                         len++;
                                 }
                         }
-        
+
                         width =  (len < width) ? width - len : 0;
 
                         if (flags & FL_ALT) {
@@ -520,17 +520,17 @@ BetterStream::_vprintf (unsigned char in_progmem, const char *fmt, va_list ap)
                                 if (flags & FL_NEGATIVE) z = '-';
                                 write(z);
                         }
-                
+
                         while (prec > c) {
                                 write('0');
                                 prec--;
                         }
-        
+
                         do {
                                 write(buf[--c]);
                         } while (c);
                 }
-        
+
         tail:
                 /* Tail is possible.    */
                 while (width) {

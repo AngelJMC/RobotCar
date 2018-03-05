@@ -95,10 +95,10 @@ typedef struct {
  # undef PSTR
   /* Need const type for progmem - new for avr-gcc 4.6 */
   # if __AVR__ && __GNUC__ == 4 && __GNUC_MINOR__ > 5
- # define PSTR(s) (__extension__({static const prog_char __c[] PROGMEM = (s); \
+ # define PSTR(s) (__extension__({static const char __c[] PROGMEM = (s); \
                                   (const prog_char_t *)&__c[0]; }))
   #else
- # define PSTR(s) (__extension__({static prog_char __c[] PROGMEM = (s); \
+ # define PSTR(s) (__extension__({static char __c[] PROGMEM = (s); \
                                   (prog_char_t *)&__c[0]; }))
   #endif
 #endif
@@ -110,22 +110,22 @@ typedef struct {
 
 static inline int        strcasecmp_P(const char *str1, const prog_char_t *pstr)
 {
-    return strcasecmp_P(str1, (const prog_char *)pstr);
+    return strcasecmp_P(str1, (const char *)pstr);
 }
 
 static inline int        strcmp_P(const char *str1, const prog_char_t *pstr)
 {
-    return strcmp_P(str1, (const prog_char *)pstr);
+    return strcmp_P(str1, (const char *)pstr);
 }
 
 static inline size_t        strlen_P(const prog_char_t *pstr)
 {
-    return strlen_P((const prog_char *)pstr);
+    return strlen_P((const char *)pstr);
 }
 
 static inline void *      memcpy_P(void *dest, const prog_char_t *src, size_t n)
 {
-    return memcpy_P(dest, (const prog_char *)src, n);
+    return memcpy_P(dest, (const char *)src, n);
 }
 
 // strlcat_P() in AVR libc seems to be broken
@@ -150,7 +150,7 @@ static inline size_t        strlcat_P(char *d, const prog_char_t *s, size_t bufs
 
 static inline char *      strncpy_P(char *buffer, const prog_char_t *pstr, size_t buffer_size)
 {
-    return strncpy_P(buffer, (const prog_char *)pstr, buffer_size);
+    return strncpy_P(buffer, (const char *)pstr, buffer_size);
 }
 
 
@@ -167,7 +167,7 @@ static inline uintptr_t        pgm_read_pointer(const void *s)
         } u;
         uint8_t        i;
         for (i=0; i< sizeof(uintptr_t); i++) {
-            u.a[i] = pgm_read_byte(i + (const prog_char *)s);
+            u.a[i] = pgm_read_byte(i + (const char *)s);
         }
         return u.p;
     }
