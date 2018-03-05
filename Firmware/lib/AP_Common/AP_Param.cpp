@@ -29,7 +29,7 @@
 #endif
 
 // some useful progmem macros
-#define PGM_UINT8(addr) pgm_read_byte((const prog_char *)addr)
+#define PGM_UINT8(addr) pgm_read_byte((const char *)addr)
 #define PGM_UINT16(addr) pgm_read_word((const uint16_t *)addr)
 #define PGM_FLOAT(addr) pgm_read_float((const float *)addr)
 #define PGM_POINTER(addr) pgm_read_pointer((const void *)addr)
@@ -595,7 +595,7 @@ AP_Param::find_by_index(uint16_t idx, enum ap_var_type *ptype)
          ap=AP_Param::next_scalar(&token, ptype)) {
         count++;
     }
-    return ap;    
+    return ap;
 }
 
 // Save the variable to EEPROM, if supported

@@ -402,7 +402,7 @@ void AP_InertialSensor_MPU6000::hardware_init(Sample_rate sample_rate)
         default_filter = BITS_DLPF_CFG_98HZ;
         break;
     }
-    
+
     // choose filtering frequency
     switch (_mpu6000_filter) {
     case 5:
@@ -481,7 +481,7 @@ uint16_t AP_InertialSensor_MPU6000::num_samples_available()
 }
 
 // get_delta_time returns the time period in seconds overwhich the sensor data was collected
-uint32_t AP_InertialSensor_MPU6000::get_delta_time_micros() 
+uint32_t AP_InertialSensor_MPU6000::get_delta_time_micros()
 {
     return _delta_time_micros;
 }
@@ -906,7 +906,7 @@ void AP_InertialSensor_MPU6000::dmp_load_mem()
             digitalWrite(MPU6000_CS_PIN, LOW);
             SPI.transfer(MPUREG_MEM_R_W);
             for(int k = 0; k < 16; k++) {
-                uint8_t byteToSend = pgm_read_byte((const prog_char *)&(dmpMem[i][j][k]));
+                uint8_t byteToSend = pgm_read_byte((const char *)&(dmpMem[i][j][k]));
                 SPI.transfer((uint8_t) byteToSend);
             }
             digitalWrite(MPU6000_CS_PIN, HIGH);
@@ -920,7 +920,7 @@ void AP_InertialSensor_MPU6000::dmp_load_mem()
         digitalWrite(MPU6000_CS_PIN, LOW);
         SPI.transfer(MPUREG_MEM_R_W);
         for(int k = 0; k < 16; k++) {
-            uint8_t byteToSend = pgm_read_byte((const prog_char *)&(dmpMem[7][j][k]));
+            uint8_t byteToSend = pgm_read_byte((const char *)&(dmpMem[7][j][k]));
             SPI.transfer((uint8_t) byteToSend);
         }
         digitalWrite(MPU6000_CS_PIN, HIGH);
@@ -930,7 +930,7 @@ void AP_InertialSensor_MPU6000::dmp_load_mem()
     digitalWrite(MPU6000_CS_PIN, LOW);
     SPI.transfer(MPUREG_MEM_R_W);
     for(int k = 0; k < 9; k++) {
-        uint8_t byteToSend = pgm_read_byte((const prog_char *)&(dmpMem[7][8][k]));
+        uint8_t byteToSend = pgm_read_byte((const char *)&(dmpMem[7][8][k]));
         SPI.transfer((uint8_t) byteToSend);
     }
     digitalWrite(MPU6000_CS_PIN, HIGH);
