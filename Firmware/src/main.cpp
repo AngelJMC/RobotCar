@@ -4,7 +4,7 @@
 #include <I2C.h>
 #include <Arduino_Mega_ISR_Registry.h>
 #include <AP_PeriodicProcess.h>
-// #include <AP_InertialSensor.h>
+#include <AP_InertialSensor.h>
 #include <AP_Math.h>
 #include <AP_Common.h>
 #include <AP_Compass.h>
@@ -63,9 +63,9 @@ delaysMs_t lastMs;
 Arduino_Mega_ISR_Registry _isr_registry,_isr_registry1;
 AP_TimerProcess scheduler;
 
-AP_Compass_HMC5843 compass;
+// AP_Compass_HMC5843 compass;
 //
-// AP_InertialSensor_MPU6000 ins;
+AP_InertialSensor_MPU6000 ins;
 
 APM_PPMDecoder _rcPPM;
 Servo servoSteering ;  // create servo object to control a servo
@@ -95,6 +95,7 @@ static void flash_leds(bool on)
   digitalWrite(BLUE_LED_PIN, on ? LED_OFF : LED_ON);
   digitalWrite(YELLOW_LED_PIN, on ? LED_OFF : LED_ON);
   digitalWrite(RED_LED_PIN, on ? LED_ON : LED_OFF);
+
 }
 
 void setup() {
@@ -106,32 +107,22 @@ void setup() {
   digitalWrite(40, HIGH);
  delay(100);
   SPI.begin();
-  // SPI.setClockDivider(SPI_CLOCK_DIV16
+
   SPI.beginTransaction (SPISettings (1000000, MSBFIRST, SPI_MODE3));
   Serial.begin(115200);
 
   // we need to stop the barometer from holding the SPI bus
   delay(1);
+ pinMode(BLUE_LED_PIN, OUTPUT);
+ pinMode(YELLOW_LED_PIN, OUTPUT);
+ pinMode(RED_LED_PIN, OUTPUT);
 
    _isr_registry.init();
   scheduler.init(&_isr_registry);
 
 
-  // ins.init(AP_InertialSensor::WARM_START, AP_InertialSensor::RATE_100HZ, delay, flash_leds, &scheduler);
-  // //
-  //  ins.init_accel(delay, flash_leds);
-
-
-  compass.set_orientation(AP_COMPASS_APM2_SHIELD);
-  compass.set_offsets(0,0,0);
-  compass.set_declination(ToRad(0.0));
-
-  if( compass.init() ) {
-    Serial.println("Enabling compass...");
-  }
-  else {
-    Serial.println("No compass detected");
-  }
+  ins.init(AP_InertialSensor::COLD_START, AP_InertialSensor::RATE_100HZ, delay, flash_leds, &scheduler);
+  ins.init_accel(delay, flash_leds);
 
   initRC(&_rcPPM, &_isr_registry);
   initControl(&servoSteering,&pidMtr);
@@ -157,24 +148,21 @@ void loop() {
     updateSpeed(&_cval, &encoderMtr, &pidMtr, &driverMtr, refVal);
     printInfoPID(&_cval);
 
-    // ins.update();
-    // uint16_t _mpu6000_product_id;
-      //  _mpu6000_product_id = register_read(MPUREG_PRODUCT_ID_X);     // read the product ID rev c has 1/2 the sensitivity of rev d
-       //Serial.printf("Product_ID= 0x%x\n", (unsigned) _mpu6000_product_id);
-      //  Serial.print( "ID  :");
-      //  Serial.println( _mpu6000_product_id);
+    ins.update();
+
+
        delay(1000);
-    // accel = ins.get_accel();
-    // gyro = ins.get_gyro();
+    accel = ins.get_accel();
+    gyro = ins.get_gyro();
     // apm_imu_msg.ax=(accel.x+0.07262561)*0.99451745;
     //  apm_imu_msg.ay=(accel.y-0.34247160)*0.99348778;
     // apm_imu_msg.az=(accel.z-1.81453760)*0.98398465;
-    // Serial.println(accel.x);
-    // Serial.println(accel.y);
-    // Serial.println(accel.z);
-    // Serial.println(gyro.x);
-    // Serial.println(gyro.y);
-    // Serial.println(gyro.z);
+    Serial.println(accel.x);
+    Serial.println(accel.y);
+    Serial.println(accel.z);
+    Serial.println(gyro.x);
+    Serial.println(gyro.y);
+    Serial.println(gyro.z);
 
 
   }

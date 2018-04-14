@@ -370,18 +370,18 @@ void AP_InertialSensor_MPU6000::hardware_init(Sample_rate sample_rate)
     delay(1);
 
     // Chip reset
-    // register_write(MPUREG_PWR_MGMT_1, BIT_PWR_MGMT_1_DEVICE_RESET);
-    // delay(100);
+    register_write(MPUREG_PWR_MGMT_1, BIT_PWR_MGMT_1_DEVICE_RESET);
+    delay(100);
     // Wake up device and select GyroZ clock (better performance)
-    // register_write(MPUREG_PWR_MGMT_1, BIT_PWR_MGMT_1_CLK_ZGYRO);
-    // delay(1);
+    register_write(MPUREG_PWR_MGMT_1, BIT_PWR_MGMT_1_CLK_ZGYRO);
+    delay(1);
 
-    // register_write(MPUREG_PWR_MGMT_2, 0x00);            // only used for wake-up in accelerometer only low power mode
-    // delay(1);
+    register_write(MPUREG_PWR_MGMT_2, 0x00);            // only used for wake-up in accelerometer only low power mode
+    delay(1);
 
     // Disable I2C bus (recommended on datasheet)
-    // register_write(MPUREG_USER_CTRL, BIT_USER_CTRL_I2C_IF_DIS);
-    // delay(1);
+    register_write(MPUREG_USER_CTRL, BIT_USER_CTRL_I2C_IF_DIS);
+    delay(1);
 
     uint8_t rate, filter, default_filter;
 
@@ -403,7 +403,7 @@ void AP_InertialSensor_MPU6000::hardware_init(Sample_rate sample_rate)
         default_filter = BITS_DLPF_CFG_98HZ;
         break;
     }
-
+    
     // choose filtering frequency
     switch (_mpu6000_filter) {
     case 5:
@@ -429,20 +429,19 @@ void AP_InertialSensor_MPU6000::hardware_init(Sample_rate sample_rate)
     }
 
     // set sample rate
-    // register_write(MPUREG_SMPLRT_DIV, rate);
-    // delay(1);
+    register_write(MPUREG_SMPLRT_DIV, rate);
+    delay(1);
 
     // set low pass filter
-    // register_write(MPUREG_CONFIG, filter);
-    // delay(1);
+    register_write(MPUREG_CONFIG, filter);
+    delay(1);
 
-    // register_write(MPUREG_GYRO_CONFIG, BITS_GYRO_FS_2000DPS);  // Gyro scale 2000º/s
-    // delay(1);
+    register_write(MPUREG_GYRO_CONFIG, BITS_GYRO_FS_2000DPS);  // Gyro scale 2000º/s
+    delay(1);
 
     _mpu6000_product_id = register_read(MPUREG_PRODUCT_ID);     // read the product ID rev c has 1/2 the sensitivity of rev d
-    //Serial.printf("Product_ID= 0x%x\n", (unsigned) _mpu6000_product_id);
-    Serial.print( "ID  :");
-    Serial.println( _mpu6000_product_id);
+    Serial.print( "ID: 0x");
+    Serial.println( _mpu6000_product_id, HEX);
 
     if ((_mpu6000_product_id == MPU6000ES_REV_C4) || (_mpu6000_product_id == MPU6000ES_REV_C5) ||
         (_mpu6000_product_id == MPU6000_REV_C4)   || (_mpu6000_product_id == MPU6000_REV_C5)) {
