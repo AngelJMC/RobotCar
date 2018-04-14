@@ -1,14 +1,27 @@
-#include "Arduino.h"
+// #include "Arduino.h"
+// #include <FastSerial.h>
+#include <SPI.h>
+#include <I2C.h>
+#include <Arduino_Mega_ISR_Registry.h>
+#include <AP_PeriodicProcess.h>
+// #include <AP_InertialSensor.h>
+#include <AP_Math.h>
+#include <AP_Common.h>
+#include <AP_Compass.h>
+#include <AP_Buffer.h>
+
+#define APM2_HARDWARE
+#define MPUREG_PRODUCT_ID_X                               0x0C    // Product ID Register
+
 #include "Encoder.h"
 #include "L298N.h"
 #include "Servo.h"
 #include "PID_v1.h"
-#include <Arduino_Mega_ISR_Registry.h>
 #include <APM_RC.h> // ArduPilot Mega RC Library
+#include "control.h"
+#include "cli.h"
+#include "rc_command.h"
 
-
-
-//pin definition
 #define _EN  8
 #define _IN1 7
 #define _IN2 6
@@ -16,99 +29,160 @@
 #define _INT1 3
 #define _INT2 2
 
-#define SERVO_INPUT 11
+# define RED_LED_PIN        27
+# define YELLOW_LED_PIN     26
+# define BLUE_LED_PIN       25
+# define LED_ON           LOW
+# define LED_OFF          HIGH
+# define MAG_ORIENTATION  AP_COMPASS_APM2_SHIELD
 
-//Define Variables we'll be connecting to
-double _setPointMotor = 0, _input = 0, _output = 0;
-//Specify the links and initial tuning parameters
-double Kp=1.1, Ki=0.7, Kd=0.001;
+typedef struct{
+  uint32_t motor = 0;
+  uint32_t steering = 0;
+}delaysMs_t;
 
-Arduino_Mega_ISR_Registry isr_registry;
-APM_PPMDecoder APM_RC;
+pidParameter_t _cval={
+  .setPointMotor = 0,
+  .input = 0,
+  .output = 0,
+  .Kp = 1.2,
+  .Ki = 0.7,
+  .Kd = 0.001,
+};
 
+refValue_t refVal;
+
+cliHdlr_t _cliHdlr={
+  .BufferSerialInput = "",
+  .rcvNumberString = "",
+  .FlagBufferInput = false,  // whether the string is complete
+};
+
+delaysMs_t lastMs;
+
+Arduino_Mega_ISR_Registry _isr_registry,_isr_registry1;
+AP_TimerProcess scheduler;
+
+AP_Compass_HMC5843 compass;
+//
+// AP_InertialSensor_MPU6000 ins;
+
+APM_PPMDecoder _rcPPM;
 Servo servoSteering ;  // create servo object to control a servo
-PID pidMtr(&_input, &_output, &_setPointMotor, Kp, Ki, Kd, DIRECT);
+PID pidMtr(&_cval.input, &_cval.output , &_cval.setPointMotor, _cval.Kp, _cval.Ki, _cval.Kd, DIRECT);
 L298N driverMtr(_EN, _IN1, _IN2);
 Encoder encoderMtr(_INT1, _INT2);
 
-uint32_t _lastMs = 0;
-bool _canMove = 1;
-long _oldPosition;
-
-
-uint8_t test = 1;
-// motorControl motorCtr(test);
-int16_t _SetpointMotor=0;
-uint32_t _delayMs=100;
-
-uint8_t servoVal;
-int16_t speedVal;
-
-
-String BufferSerialInput = "";         // a string to hold incoming data
-String rcvNumberString = "";
-boolean FlagBufferInput = false;  // whether the string is complete
-
-
-int32_t getSpeed( void );
-void updateSpeed(uint32_t delay, double reference);
 void serialEvent();
 
-void setup() {
-  isr_registry.init();
-  APM_RC.Init(&isr_registry);          // APM Radio initialization
-  servoSteering.attach(11);  // attaches the servo on pin 9 to the servo object
+// uint8_t register_read( uint8_t reg )
+// {
+//     uint8_t return_value;
+//     uint8_t addr = reg | 0x80; // Set most significant bit
+//
+//     digitalWrite(53, LOW);
+//
+//     SPI.transfer(0b00001100);
+//     return_value = SPI.transfer(0x00);
+//
+//     digitalWrite(53, HIGH);
+//
+//     return return_value;
+// }
 
+static void flash_leds(bool on)
+{
+  digitalWrite(BLUE_LED_PIN, on ? LED_OFF : LED_ON);
+  digitalWrite(YELLOW_LED_PIN, on ? LED_OFF : LED_ON);
+  digitalWrite(RED_LED_PIN, on ? LED_ON : LED_OFF);
+}
+
+void setup() {
+  I2c.begin();
+  I2c.timeOut(20);
+  I2c.setSpeed(true);
+
+  pinMode(40, OUTPUT);
+  digitalWrite(40, HIGH);
+ delay(100);
+  SPI.begin();
+  // SPI.setClockDivider(SPI_CLOCK_DIV16
+  SPI.beginTransaction (SPISettings (1000000, MSBFIRST, SPI_MODE3));
   Serial.begin(115200);
 
+  // we need to stop the barometer from holding the SPI bus
+  delay(1);
 
-   pidMtr.SetMode(AUTOMATIC);
-   pidMtr.SetOutputLimits(-255, 255);
-  // reserve 20 bytes for the inputString:
-  BufferSerialInput.reserve(20);
+   _isr_registry.init();
+  scheduler.init(&_isr_registry);
+
+
+  // ins.init(AP_InertialSensor::WARM_START, AP_InertialSensor::RATE_100HZ, delay, flash_leds, &scheduler);
+  // //
+  //  ins.init_accel(delay, flash_leds);
+
+
+  compass.set_orientation(AP_COMPASS_APM2_SHIELD);
+  compass.set_offsets(0,0,0);
+  compass.set_declination(ToRad(0.0));
+
+  if( compass.init() ) {
+    Serial.println("Enabling compass...");
+  }
+  else {
+    Serial.println("No compass detected");
+  }
+
+  initRC(&_rcPPM, &_isr_registry);
+  initControl(&servoSteering,&pidMtr);
+  _cliHdlr.BufferSerialInput.reserve(20);   // reserve 20 bytes for the inputString:
 
 }
 
 void loop() {
 
+  if (_cliHdlr.FlagBufferInput) {
+    updateCLI( &_cliHdlr, &refVal);
+  }
 
-	if (FlagBufferInput) {
-	    Serial.println(BufferSerialInput);
-	    //Process the received string
-	    if(BufferSerialInput[0]=='#'){
-	    	if(BufferSerialInput[1]=='S'){
-	    		//read servo reference
-	    		rcvNumberString = BufferSerialInput.substring(3,BufferSerialInput.length()-1);
-	    		//Setpoint_Servo = rcvNumberString.toDouble();
-	    		//Serial.println(Setpoint_Servo);
-	    	}
-	    	else if(BufferSerialInput[1]=='M'){
-	    		rcvNumberString = BufferSerialInput.substring(3,BufferSerialInput.length()-1);
-	    		speedVal = rcvNumberString.toDouble();
-	    		Serial.println(speedVal);
-	    	}
-	    }
+  if (_rcPPM.GetState() == true ) {
+    updateRC( &_rcPPM, &refVal);
+  }
 
-	    // clear the string:
-	    BufferSerialInput = "";
-	    FlagBufferInput = false;
-	}
+  if ((millis() - lastMs.motor) >= 100) {
+    Vector3f accel;
+    Vector3f gyro;
 
-   if (APM_RC.GetState() == 1) {
-       Serial.print("CH:");
-       for(int i = 0; i < 4; i++) {
-           Serial.print(APM_RC.InputCh(i));                    // Print channel values
-           Serial.print(",");
-       }
-       Serial.println();
+    lastMs.motor = millis();
+    updateSpeed(&_cval, &encoderMtr, &pidMtr, &driverMtr, refVal);
+    printInfoPID(&_cval);
 
-      servoVal = map(APM_RC.InputCh(0), 980, 2100, 170, 50);     // scale it to use it with the servo (value between 0 and 180)
-      servoSteering.write(servoVal);                  // sets the servo position according to the scaled value
-      speedVal = map(APM_RC.InputCh(1), 915, 2000, -255, 255);     // scale it to use it with the servo (value between 0 and 180)
-   }
+    // ins.update();
+    // uint16_t _mpu6000_product_id;
+      //  _mpu6000_product_id = register_read(MPUREG_PRODUCT_ID_X);     // read the product ID rev c has 1/2 the sensitivity of rev d
+       //Serial.printf("Product_ID= 0x%x\n", (unsigned) _mpu6000_product_id);
+      //  Serial.print( "ID  :");
+      //  Serial.println( _mpu6000_product_id);
+       delay(1000);
+    // accel = ins.get_accel();
+    // gyro = ins.get_gyro();
+    // apm_imu_msg.ax=(accel.x+0.07262561)*0.99451745;
+    //  apm_imu_msg.ay=(accel.y-0.34247160)*0.99348778;
+    // apm_imu_msg.az=(accel.z-1.81453760)*0.98398465;
+    // Serial.println(accel.x);
+    // Serial.println(accel.y);
+    // Serial.println(accel.z);
+    // Serial.println(gyro.x);
+    // Serial.println(gyro.y);
+    // Serial.println(gyro.z);
 
-   updateSpeed(_delayMs, speedVal );
 
+  }
+
+  if ((millis() - lastMs.steering) >= 10){
+    lastMs.steering = millis();
+    updateSteering( &servoSteering, refVal);
+  }
 }
 
 /*
@@ -122,67 +196,11 @@ void serialEvent() {
     // get the new byte:
     char inChar = (char)Serial.read();
     // add it to the inputString:
-    BufferSerialInput += inChar;
+    _cliHdlr.BufferSerialInput += inChar;
     // if the incoming character is a newline, set a flag
     // so the main loop can do something about it:
     if (inChar == '\n') {
-      FlagBufferInput = true;
+      _cliHdlr.FlagBufferInput = true;
     }
-  }
-}
-
-int32_t getSpeed( void ){
-
-    int32_t newPosition = encoderMtr.read();
-    int32_t diffCount = 0;
-
-    if (newPosition != _oldPosition) {
-      diffCount = newPosition - _oldPosition;
-      _oldPosition = newPosition;
-    }
-return diffCount*3;
-}
-
-
-void updateSpeed(uint32_t delay, double reference){
-  uint8_t pwmVal;
-
-  if (((millis() - _lastMs) >= delay)) {
-     _setPointMotor = reference;
-     _input = getSpeed();
-     pidMtr.Compute();
-     //pwmVal = map(_output, 0, 1300, 0, 255);
-
-     Serial.print("Tms: ");
-     Serial.print(_lastMs);
-
-     Serial.print(" encod: ");
-     Serial.print(_oldPosition);
-
-    Serial.print(" refe: ");
-    Serial.print(reference);
-
-    Serial.print("  inp:");
-    Serial.print(_input);
-
-    Serial.print("  out:");
-    Serial.print(_output);
-
-    // pwmVal = abs(_output);
-    pwmVal = abs(speedVal);
-    Serial.print("  control:");
-    Serial.println(pwmVal);
-driverMtr.setSpeed(pwmVal);
-if(reference >=0){
-    //if(_output >=0){
-    driverMtr.forward(); //forward
-    }
-    else{
-      driverMtr.backward(); //BACKWARD
-    }
-
-
-    _lastMs = millis();
-
   }
 }
