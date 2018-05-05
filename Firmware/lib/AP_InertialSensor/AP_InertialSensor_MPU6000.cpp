@@ -403,7 +403,7 @@ void AP_InertialSensor_MPU6000::hardware_init(Sample_rate sample_rate)
         default_filter = BITS_DLPF_CFG_98HZ;
         break;
     }
-    
+
     // choose filtering frequency
     switch (_mpu6000_filter) {
     case 5:
