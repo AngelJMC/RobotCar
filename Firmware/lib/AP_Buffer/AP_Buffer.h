@@ -6,7 +6,7 @@
 #ifndef AP_BUFFER
 #define AP_BUFFER
 
-#include <FastSerial.h>
+// #include <FastSerial.h>
 #include <AP_Common.h>
 #include <AP_Math.h>        // ArduPilot Mega Vector/Matrix math Library
 

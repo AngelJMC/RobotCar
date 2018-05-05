@@ -1,5 +1,5 @@
 /// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
-#include <FastSerial.h>
+//#include <FastSerial.h>
 
 #include "AP_InertialSensor_MPU6000.h"
 
@@ -364,6 +364,7 @@ void AP_InertialSensor_MPU6000::data_interrupt(void)
 void AP_InertialSensor_MPU6000::hardware_init(Sample_rate sample_rate)
 {
     // MPU6000 chip select setup
+
     pinMode(MPU6000_CS_PIN, OUTPUT);
     digitalWrite(MPU6000_CS_PIN, HIGH);
     delay(1);
@@ -439,7 +440,8 @@ void AP_InertialSensor_MPU6000::hardware_init(Sample_rate sample_rate)
     delay(1);
 
     _mpu6000_product_id = register_read(MPUREG_PRODUCT_ID);     // read the product ID rev c has 1/2 the sensitivity of rev d
-    //Serial.printf("Product_ID= 0x%x\n", (unsigned) _mpu6000_product_id);
+    Serial.print( "ID: 0x");
+    Serial.println( _mpu6000_product_id, HEX);
 
     if ((_mpu6000_product_id == MPU6000ES_REV_C4) || (_mpu6000_product_id == MPU6000ES_REV_C5) ||
         (_mpu6000_product_id == MPU6000_REV_C4)   || (_mpu6000_product_id == MPU6000_REV_C5)) {

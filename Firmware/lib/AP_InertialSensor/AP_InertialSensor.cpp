@@ -73,7 +73,7 @@ accel_scale.z = 0.98398465;
     }
     if (WARM_START != style) {
         // do cold-start calibration for gyro only
- //Serial.printf_P(PSTR("cold!!!!!!!"));
+        // Serial.printf_P(PSTR("cold!!!!!!!"));
         _init_gyro(delay_cb, flash_leds_cb);
     }
 }
@@ -269,7 +269,7 @@ AP_InertialSensor::_init_accel(void (*delay_cb)(unsigned long t), void (*flash_l
 
 #if !defined( __AVR_ATmega1280__ )
 // perform accelerometer calibration including providing user instructions and feedback
-bool AP_InertialSensor::calibrate_accel(void (*delay_cb)(unsigned long t), void (*flash_leds_cb)(bool on), 
+bool AP_InertialSensor::calibrate_accel(void (*delay_cb)(unsigned long t), void (*flash_leds_cb)(bool on),
                                         void (*send_msg)(const prog_char_t *, ...),
                                         void (*wait_key)(void))
 {
@@ -372,7 +372,7 @@ bool AP_InertialSensor::_calibrate_accel( Vector3f accel_sample[6], Vector3f& ac
     // reset
     beta[0] = beta[1] = beta[2] = 0;
     beta[3] = beta[4] = beta[5] = 1.0/GRAVITY;
-    
+
     while( num_iterations < 20 && change > eps ) {
         num_iterations++;
 
@@ -427,7 +427,7 @@ void AP_InertialSensor::_calibrate_update_matrices(float dS[6], float JS[6][6], 
     float dx, b;
     float residual = 1.0;
     float jacobian[6];
-    
+
     for( j=0; j<3; j++ ) {
         b = beta[3+j];
         dx = (float)data[j] - beta[j];
@@ -435,7 +435,7 @@ void AP_InertialSensor::_calibrate_update_matrices(float dS[6], float JS[6][6], 
         jacobian[j] = 2.0*b*b*dx;
         jacobian[3+j] = -2.0*b*dx*dx;
     }
-    
+
     for( j=0; j<6; j++ ) {
         dS[j] += jacobian[j]*residual;
         for( k=0; k<6; k++ ) {
@@ -482,7 +482,7 @@ void AP_InertialSensor::_calibrate_find_delta(float dS[6], float JS[6][6], float
     for( i=5; i>=0; i-- ) {
         dS[i] /= JS[i][i];
         JS[i][i] = 1.0;
-        
+
         for( j=0; j<i; j++ ) {
             mu = JS[i][j];
             dS[j] -= mu*dS[i];
@@ -496,4 +496,3 @@ void AP_InertialSensor::_calibrate_find_delta(float dS[6], float JS[6][6], float
 }
 
 #endif // __AVR_ATmega1280__
-
