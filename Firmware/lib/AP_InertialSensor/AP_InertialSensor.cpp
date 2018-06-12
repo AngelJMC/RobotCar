@@ -1,5 +1,5 @@
 /// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
-#include <FastSerial.h>
+//#include <FastSerial.h>
 
 #include "AP_InertialSensor.h"
 
@@ -105,7 +105,7 @@ AP_InertialSensor::_init_gyro(void (*delay_cb)(unsigned long t), void (*flash_le
 
     // cold start
     delay_cb(100);
-    Serial.printf_P(PSTR("Init Gyro"));
+    Serial.println("Init Gyro");
 
     // remove existing gyro offsets
     _gyro_offset = Vector3f(0,0,0);
@@ -136,7 +136,7 @@ AP_InertialSensor::_init_gyro(void (*delay_cb)(unsigned long t), void (*flash_le
         float diff_norm;
         uint8_t i;
 
-        Serial.printf_P(PSTR("*"));
+        Serial.println("*");
 
         gyro_sum.zero();
         for (i=0; i<200; i++) {
@@ -174,7 +174,7 @@ AP_InertialSensor::_init_gyro(void (*delay_cb)(unsigned long t), void (*flash_le
 
     // we've kept the user waiting long enough - use the best pair we
     // found so far
-    Serial.printf_P(PSTR("\ngyro did not converge: diff=%f dps\n"), ToDeg(best_diff));
+    Serial.print(String("\ngyro did not converge: diff=") + ToDeg(best_diff) + String(" dps\n") );
 
     _gyro_offset = best_avg;
 }
@@ -193,7 +193,7 @@ void
 AP_InertialSensor::_init_accel(void (*delay_cb)(unsigned long t), void (*flash_leds_cb)(bool on))
 {
  _accel_offset = Vector3f(-0.07262561,0.34247160,1.81453760);
-/*
+
     int8_t flashcount = 0;
     Vector3f ins_accel;
     Vector3f prev;
@@ -204,7 +204,7 @@ AP_InertialSensor::_init_accel(void (*delay_cb)(unsigned long t), void (*flash_l
     // cold start
     delay_cb(100);
 
-    Serial.printf_P(PSTR("Init Accel"));
+    Serial.print("Init Accel");
 
     // clear accelerometer offsets and scaling
     _accel_offset = Vector3f(0,0,0);
@@ -238,7 +238,7 @@ AP_InertialSensor::_init_accel(void (*delay_cb)(unsigned long t), void (*flash_l
 
             // display some output to the user
             if(flashcount == 5) {
-                Serial.printf_P(PSTR("*"));
+                Serial.print("*");
                 FLASH_LEDS(true);
             }
 
@@ -263,8 +263,8 @@ AP_InertialSensor::_init_accel(void (*delay_cb)(unsigned long t), void (*flash_l
     // set the global accel offsets
     _accel_offset = accel_offset;
  //Serial.printf("%f     %f     %f ",accel_offset.x,accel_offset.y,accel_offset.z);
-    Serial.printf_P(PSTR(" "));
-*/
+    Serial.print(" ");
+
 }
 
 #if !defined( __AVR_ATmega1280__ )

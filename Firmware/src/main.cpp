@@ -9,6 +9,7 @@
 #include <AP_Common.h>
 #include <AP_Compass.h>
 #include <AP_Buffer.h>
+#include <motorControl.h>
 
 #define APM2_HARDWARE
 #define MPUREG_PRODUCT_ID_X                               0x0C    // Product ID Register
@@ -18,7 +19,7 @@
 #include "Servo.h"
 #include "PID_v1.h"
 #include <APM_RC.h> // ArduPilot Mega RC Library
-#include "control.h"
+// #include "control.h"
 #include "cli.h"
 #include "rc_command.h"
 
@@ -26,8 +27,8 @@
 #define _IN1 7
 #define _IN2 6
 
-#define _INT1 3
-#define _INT2 2
+#define _INT1_ 3
+#define _INT2_ 2
 
 # define RED_LED_PIN        27
 # define YELLOW_LED_PIN     26
@@ -41,6 +42,8 @@ typedef struct{
   uint32_t steering = 0;
 }delaysMs_t;
 
+double Kp=1.2, Ki=0.7, Kd=0.001;
+
 pidParameter_t _cval={
   .setPointMotor = 0,
   .input = 0,
@@ -49,6 +52,14 @@ pidParameter_t _cval={
   .Ki = 0.7,
   .Kd = 0.001,
 };
+
+struct refValue_s {
+
+  uint8_t servoVal;
+  int16_t speedVal;
+
+};
+
 
 refValue_t refVal;
 
@@ -69,9 +80,18 @@ AP_InertialSensor_MPU6000 ins;
 
 APM_PPMDecoder _rcPPM;
 Servo servoSteering ;  // create servo object to control a servo
-PID pidMtr(&_cval.input, &_cval.output , &_cval.setPointMotor, _cval.Kp, _cval.Ki, _cval.Kd, DIRECT);
-L298N driverMtr(_EN, _IN1, _IN2);
-Encoder encoderMtr(_INT1, _INT2);
+
+// PID pidMtr(&_cval.input, &_cval.output , &_cval.setPointMotor, _cval.Kp, _cval.Ki, _cval.Kd, DIRECT);
+// L298N driverMtr(_EN, _IN1, _IN2);
+// Encoder encoderMtr(_INT1, _INT2);
+
+// motorControl motorCtrl(Kp, Ki, Kd);
+uint8_t counterCtrl;
+// motorControl motorCtrl( _EN, _IN1, _IN2,
+//   _cval.Kp, _cval.Ki, _cval.Kd, _INT1_, _INT2_);
+
+motorControl motorCtrl(Kp, Ki, Kd);
+
 
 void serialEvent();
 
@@ -98,6 +118,7 @@ static void flash_leds(bool on)
 
 }
 
+
 void setup() {
   I2c.begin();
   I2c.timeOut(20);
@@ -111,6 +132,7 @@ void setup() {
   SPI.beginTransaction (SPISettings (1000000, MSBFIRST, SPI_MODE3));
   Serial.begin(115200);
 
+
   // we need to stop the barometer from holding the SPI bus
   delay(1);
  pinMode(BLUE_LED_PIN, OUTPUT);
@@ -120,12 +142,13 @@ void setup() {
    _isr_registry.init();
   scheduler.init(&_isr_registry);
 
-
+  // register our ping function
+  // scheduler.register_process(&runMotorControl);
   ins.init(AP_InertialSensor::COLD_START, AP_InertialSensor::RATE_100HZ, delay, flash_leds, &scheduler);
   ins.init_accel(delay, flash_leds);
 
   initRC(&_rcPPM, &_isr_registry);
-  initControl(&servoSteering,&pidMtr);
+  motorCtrl.initialize();
   _cliHdlr.BufferSerialInput.reserve(20);   // reserve 20 bytes for the inputString:
 
 }
@@ -145,24 +168,33 @@ void loop() {
     Vector3f gyro;
 
     lastMs.motor = millis();
-    updateSpeed(&_cval, &encoderMtr, &pidMtr, &driverMtr, refVal);
-    printInfoPID(&_cval);
+    motorCtrl.updateSpeed(refVal.speedVal);
+    motorCtrl.printInfoPID();
+    // updateSpeed(&_cval, &encoderMtr, &pidMtr, &driverMtr, refVal);
+    // printInfoPID(&_cval);
 
     ins.update();
+    // uint16_t val;
+    // for(uint8_t ir=0; ir<5; ir++){
+    //   val = analogRead(ir);     // read the input pin
+    //   Serial.print(val);
+    //   Serial.print(", ");
+    // }
+    // Serial.print("\r");
 
 
-       delay(1000);
     accel = ins.get_accel();
     gyro = ins.get_gyro();
-    // apm_imu_msg.ax=(accel.x+0.07262561)*0.99451745;
-    //  apm_imu_msg.ay=(accel.y-0.34247160)*0.99348778;
-    // apm_imu_msg.az=(accel.z-1.81453760)*0.98398465;
-    Serial.println(accel.x);
-    Serial.println(accel.y);
-    Serial.println(accel.z);
-    Serial.println(gyro.x);
-    Serial.println(gyro.y);
-    Serial.println(gyro.z);
+    // accel.x=(accel.x+0.07262561)*0.99451745;
+    // accel.y=(accel.y-0.34247160)*0.99348778;
+    // accel.z=(accel.z-1.81453760)*0.98398465;
+    // Serial.println(accel.x);
+    // Serial.println(accel.y);
+    // Serial.println(accel.z);
+    // Serial.println(gyro.x);
+    // Serial.println(gyro.y);
+    // Serial.println(gyro.z);
+
 
 
   }

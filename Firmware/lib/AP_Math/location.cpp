@@ -21,7 +21,7 @@
  *  this module deals with calculations involving struct Location
  */
 
-#include <FastSerial.h>
+//#include <FastSerial.h>
 #include "AP_Math.h"
 
 // radius of earth in meters

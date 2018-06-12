@@ -8,6 +8,7 @@
 #ifndef motorControl_h
 #define motorControl_h
 
+#include "../AP_PeriodicProcess/AP_PeriodicProcess.h"
 #include "Encoder.h"
 #include "L298N.h"
 #include "PID_v1.h"
@@ -20,29 +21,61 @@
 #define _INT1 2
 #define _INT2 3
 
-//Define Variables we'll be connecting to
-static double _setPointMotor = 0, _input = 0, _output = 0;
-//Specify the links and initial tuning parameters
-static double Kp=0.4, Ki=0.2, Kd=0.01;
-static PID pidMtr(&_input, &_output, &_setPointMotor, Kp, Ki, Kd, DIRECT);
-static L298N driverMtr(_EN, _IN1, _IN2);
-//Encoder encoderMtr(_INT1, _INT2);
+#define _OUTPUT_MIN   -255
+#define _OUTPUT_MAX   255
 
-//create a motor instance
+struct pidData_s {
 
-class motorControl: public Encoder{
+  double  setPointMotor;
+  double  input;
+  double  output;
+  long    oldPosition;
 
-   public:
-     motorControl( uint8_t test );
-     void updateSpeed(uint32_t delay, int16_t reference);
-
-   private:
-
-     uint32_t _lastMs = 0;
-     bool _canMove = 1;
-     long _oldPosition;
-     int32_t getSpeed( void );
 };
+
+
+class motorControl: public L298N, public Encoder, public PID{
+
+public:
+
+  motorControl(double Kp, double Ki, double Kd):
+    L298N(_EN, _IN1, _IN2),
+    Encoder(_INT2, _INT1),
+    PID(&_pidParam.input, &_pidParam.output , &_pidParam.setPointMotor,
+      Kp, Ki, Kd, DIRECT){};
+
+
+  motorControl( uint8_t pinEnable, uint8_t pinIN1, uint8_t pinIN2,
+    double Kp, double Ki, double Kd, uint8_t pin1, uint8_t pin2):
+          L298N(pinEnable, pinIN1, pinIN2),
+          Encoder( pin1, pin2),
+          PID( &_pidParam.input , &_pidParam.output,
+            &_pidParam.setPointMotor, Kp, Ki, Kd, DIRECT){};
+
+
+  motorControl( uint8_t pinEnable, uint8_t pinIN1, uint8_t pinIN2,
+    double* input, double* output, double* setPointMotor, double Kp, double Ki,
+    double Kd, int type, uint8_t pin1, uint8_t pin2):
+          L298N(pinEnable, pinIN1, pinIN2),
+          Encoder( pin1, pin2),
+          PID( input , output, setPointMotor, Kp, Ki, Kd, type){};
+
+
+     void updateSpeed( int16_t speedVal );
+     void printInfoPID( void);
+     void initialize( void );
+
+
+ private:
+   pidData_s               _pidParam;
+   // ensure we can't initialize twice
+   bool                    _initialised;
+
+   int32_t  _getSpeed( void );
+
+};
+
+
 
 
 #endif
