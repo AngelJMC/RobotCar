@@ -24,12 +24,7 @@
 #include "cli.h"
 #include "rc_command.h"
 
-#define _EN  8
-#define _IN1 7
-#define _IN2 6
 
-#define _INT1_ 3
-#define _INT2_ 2
 
 # define RED_LED_PIN        27
 # define YELLOW_LED_PIN     26
@@ -85,20 +80,6 @@ uint8_t counterCtrl;
 
 void serialEvent();
 
-// uint8_t register_read( uint8_t reg )
-// {
-//     uint8_t return_value;
-//     uint8_t addr = reg | 0x80; // Set most significant bit
-//
-//     digitalWrite(53, LOW);
-//
-//     SPI.transfer(0b00001100);
-//     return_value = SPI.transfer(0x00);
-//
-//     digitalWrite(53, HIGH);
-//
-//     return return_value;
-// }
 
 static void flash_leds(bool on)
 {
@@ -134,8 +115,10 @@ void setup() {
 
   // register our ping function
   // scheduler.register_process(&runMotorControl);
-  ins.init(AP_InertialSensor::COLD_START, AP_InertialSensor::RATE_100HZ, delay, flash_leds, &scheduler);
+  ins.init(AP_InertialSensor::WARM_START, AP_InertialSensor::RATE_100HZ, delay, flash_leds, &scheduler);
+  ins.init_gyro(delay, flash_leds);
   ins.init_accel(delay, flash_leds);
+
 
   IRsensors.init(IR_SENSORS_N, ir_inpus);
 
@@ -161,26 +144,30 @@ void loop() {
 
     lastMs.motor = millis();
     motorCtrl.updateSpeed(refVal.speedVal);
-    motorCtrl.printInfoPID();
-
     ins.update();
-
     IRsensors.update();
-    IRsensors.print();
-
-
 
     accel = ins.get_accel();
     gyro = ins.get_gyro();
+
+    // motorCtrl.printInfoPID();
+    // IRsensors.print();
+
+
+
     // accel.x=(accel.x+0.07262561)*0.99451745;
     // accel.y=(accel.y-0.34247160)*0.99348778;
     // accel.z=(accel.z-1.81453760)*0.98398465;
-    // Serial.println(accel.x);
-    // Serial.println(accel.y);
+    // Serial.print(accel.x);
+    // Serial.print("  ,  ");
+    // Serial.print(accel.y);
+    // Serial.print("  ,  ");
     // Serial.println(accel.z);
-    // Serial.println(gyro.x);
-    // Serial.println(gyro.y);
-    // Serial.println(gyro.z);
+    Serial.print(gyro.x);
+    Serial.print("  ,  ");
+    Serial.print(gyro.y);
+    Serial.print("  ,  ");
+    Serial.println(gyro.z);
 
 
 
