@@ -1,5 +1,5 @@
 
-#include "motorControl.h"
+#include "ROBC_motorControl.h"
 
 #define _SENS_COEF    6
 
@@ -55,7 +55,6 @@ void motorControl::printInfoPID( void)
 
 int32_t motorControl::_getSpeed( void )
 {
-    // int32_t newPosition = encoderMtr.read();
     int32_t newPosition = read();
     int32_t diffCount = 0;
 
