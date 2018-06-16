@@ -9,7 +9,8 @@
 #include <AP_Common.h>
 #include <AP_Compass.h>
 #include <AP_Buffer.h>
-#include <motorControl.h>
+#include <ROBC_motorControl.h>
+#include <ROBC_IRsensors.h>
 
 #define APM2_HARDWARE
 #define MPUREG_PRODUCT_ID_X                               0x0C    // Product ID Register
@@ -37,6 +38,8 @@
 # define LED_OFF          HIGH
 # define MAG_ORIENTATION  AP_COMPASS_APM2_SHIELD
 
+#define  IR_SENSORS_N 5
+
 typedef struct{
   uint32_t motor = 0;
   uint32_t steering = 0;
@@ -44,14 +47,6 @@ typedef struct{
 
 double Kp=1.2, Ki=0.7, Kd=0.001;
 
-pidParameter_t _cval={
-  .setPointMotor = 0,
-  .input = 0,
-  .output = 0,
-  .Kp = 1.2,
-  .Ki = 0.7,
-  .Kd = 0.001,
-};
 
 struct refValue_s {
 
@@ -60,6 +55,7 @@ struct refValue_s {
 
 };
 
+const analog_inputs_t ir_inpus[ IR_SENSORS_N] = {AN0, AN1, AN2, AN3, AN4};
 
 refValue_t refVal;
 
@@ -74,23 +70,17 @@ delaysMs_t lastMs;
 Arduino_Mega_ISR_Registry _isr_registry,_isr_registry1;
 AP_TimerProcess scheduler;
 
-// AP_Compass_HMC5843 compass;
-//
 AP_InertialSensor_MPU6000 ins;
 
 APM_PPMDecoder _rcPPM;
 Servo servoSteering ;  // create servo object to control a servo
 
-// PID pidMtr(&_cval.input, &_cval.output , &_cval.setPointMotor, _cval.Kp, _cval.Ki, _cval.Kd, DIRECT);
-// L298N driverMtr(_EN, _IN1, _IN2);
-// Encoder encoderMtr(_INT1, _INT2);
-
-// motorControl motorCtrl(Kp, Ki, Kd);
-uint8_t counterCtrl;
-// motorControl motorCtrl( _EN, _IN1, _IN2,
-//   _cval.Kp, _cval.Ki, _cval.Kd, _INT1_, _INT2_);
-
 motorControl motorCtrl(Kp, Ki, Kd);
+
+ROBC_IRsensors IRsensors;
+
+uint8_t counterCtrl;
+
 
 
 void serialEvent();
@@ -126,7 +116,7 @@ void setup() {
 
   pinMode(40, OUTPUT);
   digitalWrite(40, HIGH);
- delay(100);
+  delay(100);
   SPI.begin();
 
   SPI.beginTransaction (SPISettings (1000000, MSBFIRST, SPI_MODE3));
@@ -146,6 +136,8 @@ void setup() {
   // scheduler.register_process(&runMotorControl);
   ins.init(AP_InertialSensor::COLD_START, AP_InertialSensor::RATE_100HZ, delay, flash_leds, &scheduler);
   ins.init_accel(delay, flash_leds);
+
+  IRsensors.init(IR_SENSORS_N, ir_inpus);
 
   initRC(&_rcPPM, &_isr_registry);
   motorCtrl.initialize();
@@ -170,17 +162,12 @@ void loop() {
     lastMs.motor = millis();
     motorCtrl.updateSpeed(refVal.speedVal);
     motorCtrl.printInfoPID();
-    // updateSpeed(&_cval, &encoderMtr, &pidMtr, &driverMtr, refVal);
-    // printInfoPID(&_cval);
 
     ins.update();
-    // uint16_t val;
-    // for(uint8_t ir=0; ir<5; ir++){
-    //   val = analogRead(ir);     // read the input pin
-    //   Serial.print(val);
-    //   Serial.print(", ");
-    // }
-    // Serial.print("\r");
+
+    IRsensors.update();
+    IRsensors.print();
+
 
 
     accel = ins.get_accel();
