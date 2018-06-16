@@ -28,11 +28,12 @@ void ROBC_IRsensors::update( void )
 
 }
 
+
 void ROBC_IRsensors::print( void )
 {
   for( int ir=0; ir<_nSensors; ++ir){
     Serial.print(_irData[ir].ir_val);
     Serial.print(", ");
   }
-  Serial.print("\r");
+  Serial.print("\r\n");
 }
