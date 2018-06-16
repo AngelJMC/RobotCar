@@ -15,7 +15,7 @@
 
 // AVR LibC Includes
 #include <math.h>
-#include <FastSerial.h>
+//#include <FastSerial.h>
 #if defined(ARDUINO) && ARDUINO >= 100
  #include "Arduino.h"
 #else
