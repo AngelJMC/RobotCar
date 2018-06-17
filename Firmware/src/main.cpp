@@ -1,5 +1,4 @@
-// #include "Arduino.h"
-// #include <FastSerial.h>
+#include "Arduino.h"
 #include <SPI.h>
 #include <I2C.h>
 #include <Arduino_Mega_ISR_Registry.h>
@@ -12,43 +11,31 @@
 #include <ROBC_motorControl.h>
 #include <ROBC_IRsensors.h>
 
-#define APM2_HARDWARE
-#define MPUREG_PRODUCT_ID_X                               0x0C    // Product ID Register
-
-#include "Encoder.h"
-#include "L298N.h"
 #include "Servo.h"
-#include "PID_v1.h"
 #include <APM_RC.h> // ArduPilot Mega RC Library
-// #include "control.h"
 #include "cli.h"
 #include "rc_command.h"
 
-
-
-# define RED_LED_PIN        27
-# define YELLOW_LED_PIN     26
-# define BLUE_LED_PIN       25
-# define LED_ON           LOW
-# define LED_OFF          HIGH
+#define APM2_HARDWARE
+#define MPUREG_PRODUCT_ID_X                               0x0C    // Product ID Register
 # define MAG_ORIENTATION  AP_COMPASS_APM2_SHIELD
+
+#define SERVO_INPUT         11
+#define RED_LED_PIN        27
+#define YELLOW_LED_PIN     26
+#define BLUE_LED_PIN       25
+#define LED_ON           LOW
+#define LED_OFF          HIGH
 
 #define  IR_SENSORS_N 5
 
 typedef struct{
-  uint32_t motor = 0;
-  uint32_t steering = 0;
+  uint32_t motor;
+  uint32_t steering;
+  uint32_t sensors;
 }delaysMs_t;
 
 double Kp=1.2, Ki=0.7, Kd=0.001;
-
-
-struct refValue_s {
-
-  uint8_t servoVal;
-  int16_t speedVal;
-
-};
 
 const analog_inputs_t ir_inpus[ IR_SENSORS_N] = {AN0, AN1, AN2, AN3, AN4};
 
@@ -66,16 +53,10 @@ Arduino_Mega_ISR_Registry _isr_registry,_isr_registry1;
 AP_TimerProcess scheduler;
 
 AP_InertialSensor_MPU6000 ins;
-
 APM_PPMDecoder _rcPPM;
 Servo servoSteering ;  // create servo object to control a servo
-
 motorControl motorCtrl(Kp, Ki, Kd);
-
 ROBC_IRsensors IRsensors;
-
-uint8_t counterCtrl;
-
 
 
 void serialEvent();
@@ -90,7 +71,8 @@ static void flash_leds(bool on)
 }
 
 
-void setup() {
+void setup()
+{
   I2c.begin();
   I2c.timeOut(20);
   I2c.setSpeed(true);
@@ -103,32 +85,30 @@ void setup() {
   SPI.beginTransaction (SPISettings (1000000, MSBFIRST, SPI_MODE3));
   Serial.begin(115200);
 
-
-  // we need to stop the barometer from holding the SPI bus
   delay(1);
- pinMode(BLUE_LED_PIN, OUTPUT);
- pinMode(YELLOW_LED_PIN, OUTPUT);
- pinMode(RED_LED_PIN, OUTPUT);
+  pinMode(BLUE_LED_PIN, OUTPUT);
+  pinMode(YELLOW_LED_PIN, OUTPUT);
+  pinMode(RED_LED_PIN, OUTPUT);
 
    _isr_registry.init();
   scheduler.init(&_isr_registry);
 
-  // register our ping function
-  // scheduler.register_process(&runMotorControl);
   ins.init(AP_InertialSensor::WARM_START, AP_InertialSensor::RATE_100HZ, delay, flash_leds, &scheduler);
   ins.init_gyro(delay, flash_leds);
   ins.init_accel(delay, flash_leds);
 
-
   IRsensors.init(IR_SENSORS_N, ir_inpus);
 
   initRC(&_rcPPM, &_isr_registry);
+  servoSteering.attach(SERVO_INPUT);
   motorCtrl.initialize();
   _cliHdlr.BufferSerialInput.reserve(20);   // reserve 20 bytes for the inputString:
-
+  refVal.servoVal = 100;
 }
 
-void loop() {
+
+void loop()
+{
 
   if (_cliHdlr.FlagBufferInput) {
     updateCLI( &_cliHdlr, &refVal);
@@ -138,46 +118,41 @@ void loop() {
     updateRC( &_rcPPM, &refVal);
   }
 
-  if ((millis() - lastMs.motor) >= 100) {
+  if ( (millis() - lastMs.sensors) >=10){
     Vector3f accel;
     Vector3f gyro;
-
-    lastMs.motor = millis();
-    motorCtrl.updateSpeed(refVal.speedVal);
+    lastMs.sensors = millis();
     ins.update();
-    IRsensors.update();
 
     accel = ins.get_accel();
     gyro = ins.get_gyro();
 
-    // motorCtrl.printInfoPID();
-    // IRsensors.print();
-
-
-
-    // accel.x=(accel.x+0.07262561)*0.99451745;
-    // accel.y=(accel.y-0.34247160)*0.99348778;
-    // accel.z=(accel.z-1.81453760)*0.98398465;
-    // Serial.print(accel.x);
-    // Serial.print("  ,  ");
-    // Serial.print(accel.y);
-    // Serial.print("  ,  ");
-    // Serial.println(accel.z);
+    Serial.print(accel.x);
+    Serial.print("  ,  ");
+    Serial.print(accel.y);
+    Serial.print("  ,  ");
+    Serial.println(accel.z);
     Serial.print(gyro.x);
     Serial.print("  ,  ");
     Serial.print(gyro.y);
     Serial.print("  ,  ");
     Serial.println(gyro.z);
 
-
-
+    IRsensors.update();
+    IRsensors.print();
   }
 
-  if ((millis() - lastMs.steering) >= 10){
+  if ((millis() - lastMs.motor) >= 25) {
+
+    lastMs.motor = millis();
+    motorCtrl.updateSpeed(refVal.speedVal);
+    motorCtrl.printInfoPID();
+
     lastMs.steering = millis();
-    updateSteering( &servoSteering, refVal);
+    servoSteering.write( refVal.servoVal );
   }
 }
+
 
 /*
   SerialEvent occurs whenever a new data comes in the

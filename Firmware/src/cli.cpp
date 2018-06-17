@@ -10,13 +10,13 @@ void updateCLI( cliHdlr_t *cli, refValue_t *ref){
 	    	if(cli->BufferSerialInput[1]=='S'){
 	    		//read servo reference
 	    		cli->rcvNumberString = cli->BufferSerialInput.substring(3,cli->BufferSerialInput.length()-1);
-	    		//Setpoint_Servo = rcvNumberString.toDouble();
+					ref->servoVal = cli->rcvNumberString.toDouble();
 	    		//Serial.println(Setpoint_Servo);
 	    	}
 	    	else if(cli->BufferSerialInput[1]=='M'){
 	    		cli->rcvNumberString = cli->BufferSerialInput.substring(3,cli->BufferSerialInput.length()-1);
 	    		ref->speedVal = cli->rcvNumberString.toDouble();
-	    		Serial.println(ref->speedVal);
+	    		//Serial.println(ref->speedVal);
 	    	}
 	    }
 
