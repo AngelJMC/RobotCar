@@ -24,6 +24,7 @@ public:
   void init(const int, const analog_inputs_t *);
   void update( void );
   void print( void );
+  int getIR( uint8_t ir);
 
 private:
   typedef struct{

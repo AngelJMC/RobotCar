@@ -17,7 +17,7 @@ void motorControl::initialize( void )
 
 
 void motorControl::updateSpeed( int16_t speedVal ){
-    if( speedVal > -10 && speedVal <10){
+    if( speedVal > -2 && speedVal <2){
        _pidParam.setPointMotor = 0;
     }
     else{
@@ -34,6 +34,18 @@ void motorControl::updateSpeed( int16_t speedVal ){
     else{
       backward(); //BACKWARD
     }
+}
+
+long motorControl::getCountsEncoder( void){
+    return _pidParam.oldPosition;
+}
+
+double motorControl::getOutputPID( void){
+    return _pidParam.output;
+}
+
+double motorControl::getInputPID( void ){
+    return _pidParam.input;
 }
 
 
@@ -62,5 +74,6 @@ int32_t motorControl::_getSpeed( void )
       diffCount = newPosition - _pidParam.oldPosition;
       _pidParam.oldPosition = newPosition;
     }
-return diffCount* _SENS_COEF;
+// return diffCount* _SENS_COEF;
+return diffCount;
 }

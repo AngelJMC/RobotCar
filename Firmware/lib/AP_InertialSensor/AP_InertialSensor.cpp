@@ -105,7 +105,7 @@ AP_InertialSensor::_init_gyro(void (*delay_cb)(unsigned long t), void (*flash_le
 
     // cold start
     delay_cb(100);
-    Serial.println("Init Gyro");
+    // Serial.println("Init Gyro");
 
     // remove existing gyro offsets
     _gyro_offset = Vector3f(0,0,0);
@@ -136,7 +136,7 @@ AP_InertialSensor::_init_gyro(void (*delay_cb)(unsigned long t), void (*flash_le
         float diff_norm;
         uint8_t i;
 
-        Serial.println("*");
+        // Serial.println("*");
 
         gyro_sum.zero();
         for (i=0; i<200; i++) {
@@ -204,7 +204,7 @@ AP_InertialSensor::_init_accel(void (*delay_cb)(unsigned long t), void (*flash_l
     // cold start
     delay_cb(100);
 
-    Serial.print("Init Accel");
+    // Serial.print("Init Accel");
 
     // clear accelerometer offsets and scaling
     _accel_offset = Vector3f(0,0,0);
@@ -238,7 +238,7 @@ AP_InertialSensor::_init_accel(void (*delay_cb)(unsigned long t), void (*flash_l
 
             // display some output to the user
             if(flashcount == 5) {
-                Serial.print("*");
+                // Serial.print("*");
                 FLASH_LEDS(true);
             }
 
@@ -263,14 +263,14 @@ AP_InertialSensor::_init_accel(void (*delay_cb)(unsigned long t), void (*flash_l
     // set the global accel offsets
     _accel_offset = accel_offset;
  //Serial.printf("%f     %f     %f ",accel_offset.x,accel_offset.y,accel_offset.z);
-    Serial.print(" ");
+    // Serial.print(" ");
 
 }
 
 #if !defined( __AVR_ATmega1280__ )
 // perform accelerometer calibration including providing user instructions and feedback
 bool AP_InertialSensor::calibrate_accel(void (*delay_cb)(unsigned long t), void (*flash_leds_cb)(bool on),
-                                        void (*send_msg)(const prog_char_t *, ...),
+                                        void (*send_msg)(const char *, ...),
                                         void (*wait_key)(void))
 {
     Vector3f samples[6];
@@ -289,7 +289,7 @@ bool AP_InertialSensor::calibrate_accel(void (*delay_cb)(unsigned long t), void 
 
     // capture data from 6 positions
     for (int8_t i=0; i<6; i++) {
-        const prog_char_t *msg;
+        const char *msg;
 
         // display message to user
         switch ( i ) {

@@ -28,6 +28,14 @@ void ROBC_IRsensors::update( void )
 
 }
 
+int ROBC_IRsensors::getIR( uint8_t ir)
+{
+  if(ir < _nSensors && ir >= 0){
+    return _irData[ir].ir_val;
+  }
+  return 0;
+}
+
 
 void ROBC_IRsensors::print( void )
 {
