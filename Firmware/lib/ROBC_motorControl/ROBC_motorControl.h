@@ -16,8 +16,8 @@
 #define _INT1 2
 #define _INT2 3
 
-#define _OUTPUT_MIN   -255
-#define _OUTPUT_MAX   255
+#define _OUTPUT_MIN   -100
+#define _OUTPUT_MAX   100
 
 struct pidData_s {
 
@@ -59,8 +59,11 @@ public:
       PID( input , output, setPointMotor, Kp, Ki, Kd, type){};
 
   void updateSpeed( int16_t speedVal );
-  void printInfoPID( void);
+  void printInfoPID( void );
   void initialize( void );
+  long getCountsEncoder( void );
+  double getOutputPID( void );
+  double getInputPID( void );
 
 
 private:

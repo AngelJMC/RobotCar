@@ -96,7 +96,7 @@ typedef struct {
   /* Need const type for progmem - new for avr-gcc 4.6 */
   # if __AVR__ && __GNUC__ == 4 && __GNUC_MINOR__ > 5
  # define PSTR(s) (__extension__({static const char __c[] PROGMEM = (s); \
-                                  (const prog_char_t *)&__c[0]; }))
+                                  (const char *)&__c[0]; }))
   #else
  # define PSTR(s) (__extension__({static char __c[] PROGMEM = (s); \
                                   (prog_char_t *)&__c[0]; }))

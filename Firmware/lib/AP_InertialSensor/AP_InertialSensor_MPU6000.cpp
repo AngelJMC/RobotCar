@@ -440,8 +440,8 @@ void AP_InertialSensor_MPU6000::hardware_init(Sample_rate sample_rate)
     delay(1);
 
     _mpu6000_product_id = register_read(MPUREG_PRODUCT_ID);     // read the product ID rev c has 1/2 the sensitivity of rev d
-    Serial.print( "ID: 0x");
-    Serial.println( _mpu6000_product_id, HEX);
+    // Serial.print( "ID: 0x");
+    // Serial.println( _mpu6000_product_id, HEX);
 
     if ((_mpu6000_product_id == MPU6000ES_REV_C4) || (_mpu6000_product_id == MPU6000ES_REV_C5) ||
         (_mpu6000_product_id == MPU6000_REV_C4)   || (_mpu6000_product_id == MPU6000_REV_C5)) {
