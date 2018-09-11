@@ -61,9 +61,10 @@ public:
   void updateSpeed( int16_t speedVal );
   void printInfoPID( void );
   void initialize( void );
-  long getCountsEncoder( void );
+  long getAcumCounts( void );
+  long getDiffCounts( void );
   double getOutputPID( void );
-  double getInputPID( void );
+
 
 
 private:

@@ -21,9 +21,11 @@
 #include "Servo.h"
 #include <APM_RC.h> // ArduPilot Mega RC Library
 
+#define SERIAL_DEBUG 0
+
 #define APM2_HARDWARE
 #define MPUREG_PRODUCT_ID_X     0x0C    // Product ID Register
-# define MAG_ORIENTATION        AP_COMPASS_APM2_SHIELD
+#define MAG_ORIENTATION        AP_COMPASS_APM2_SHIELD
 
 #define SERVO_INPUT             11
 #define RED_LED_PIN             27
@@ -31,7 +33,8 @@
 #define BLUE_LED_PIN            25
 #define LED_ON                  LOW
 #define LED_OFF                 HIGH
-#define  IR_SENSORS_N           5
+#define IR_SENSORS_N            5
+#define RC_CHANNELS             6
 
 #define FACTOR                  10
 #define P1                      1.9*FACTOR
@@ -44,97 +47,63 @@ typedef struct{
 }refValue_t;
 
 typedef struct{
-  uint32_t motor;
-  uint32_t steering;
-  uint32_t sensors;
-}delaysMs_t;
-
-typedef struct{
   int16_t steeringAngle; //Degree
   int16_t speed;
 }rosSubs_t;
 
-
-double Kp=2.2, Ki=1.5, Kd=0.05;
+const double Kp=2.2, Ki=1.5, Kd=0.05;
 const analog_inputs_t ir_inpus[ IR_SENSORS_N] = {AN0, AN1, AN2, AN3, AN4};
-refValue_t  inputVal;
-rosSubs_t   rosVal;
 
-ros::NodeHandle  nh;
+ros::NodeHandle             nh;
+geometry_msgs::Twist        imu_msg;
+std_msgs::Int16MultiArray   ir_msg;
+std_msgs::Int16MultiArray   ctrl_mtr_msg;
+std_msgs::Int16MultiArray   rc_msg;
+robc_controller::RobcOdom   odom_msg;
 
-geometry_msgs::Twist imu_msg;
-ros::Publisher pub_imu("imu", &imu_msg);
+Arduino_Mega_ISR_Registry   isr_registry;
+AP_TimerProcess             scheduler;
+AP_InertialSensor_MPU6000   ins;
+APM_PPMDecoder              rcPPM;
+Servo                       servoSteering ;  // create servo object to control a servo
+motorControl                motorCtrl(Kp, Ki, Kd);
+ROBC_IRsensors              IRsensors;
 
-std_msgs::Int16MultiArray ir_msg;
-ros::Publisher pub_ir("ir_sens", &ir_msg);
-
-std_msgs::Int16MultiArray ctrl_mtr_msg;
-ros::Publisher pub_motor("motor", &ctrl_mtr_msg);
-
-std_msgs::Int16MultiArray rc_msg;
-ros::Publisher pub_rc("rc", &rc_msg);
-
-robc_controller::RobcOdom odom_msg;
-ros::Publisher pub_odom("odometry", &odom_msg);
-
-delaysMs_t lastMs;
-
-Arduino_Mega_ISR_Registry _isr_registry,_isr_registry1;
-AP_TimerProcess scheduler;
-
-AP_InertialSensor_MPU6000 ins;
-APM_PPMDecoder _rcPPM;
-Servo servoSteering ;  // create servo object to control a servo
-motorControl motorCtrl(Kp, Ki, Kd);
-ROBC_IRsensors IRsensors;
-
-uint16_t test[5]={};
+uint16_t test[ IR_SENSORS_N ]={};
+uint16_t rcVal[ RC_CHANNELS ]={};
 int16_t motor[3]={};
-uint16_t rcVal[6]={};
 
-void initRC(APM_PPMDecoder *rc, Arduino_Mega_ISR_Registry *isr_registry){
-  isr_registry->init();
-  rc->Init(isr_registry);          // APM Radio initialization
-}
 
-void servo_cb( const std_msgs::Int16& cmd_msg){
-  rosVal.steeringAngle = cmd_msg.data;
-}
+static uint32_t _tmrMotionControl;
+static uint32_t _tmrRangeSensor;
+static uint32_t _tmrInertialSensors;
+static uint32_t tnow;
 
-void speed_cb( const std_msgs::Int16& cmd_msg){
-  rosVal.speed = cmd_msg.data;
-}
+static refValue_t  inputVal={   .servo = 100,
+                                .speed = 0 };
 
+static rosSubs_t   rosVal={ .steeringAngle = 0,
+                            .speed = 0 };
+
+static void inertialSensors_task( uint32_t const period );
+static void rangeSensors_task( uint32_t const period );
+static void motionControl_task( uint32_t const period );
+static void rcPPM_task( );
+static void servo_cb( const std_msgs::Int16& cmd_msg);
+static void speed_cb( const std_msgs::Int16& cmd_msg);
+static void flash_leds(bool on);
+static int16_t _steeringAngle_degreeToServoInput( int16_t angle );
+static int16_t _steeringAngle_ServoInputToDegree( int16_t servoSignal );
+static int16_t _motor_countsToLinearMovement( int16_t counts );
+
+
+ros::Publisher pub_imu("imu", &imu_msg);
+ros::Publisher pub_ir("ir_sens", &ir_msg);
+ros::Publisher pub_motor("motor", &ctrl_mtr_msg);
+ros::Publisher pub_rc("rc", &rc_msg);
+ros::Publisher pub_odom("odometry", &odom_msg);
 ros::Subscriber<std_msgs::Int16> sub_servo("servo", servo_cb);
 ros::Subscriber<std_msgs::Int16> sub_speed("speed", speed_cb);
-
-
-static void flash_leds(bool on)
-{
-  digitalWrite(BLUE_LED_PIN, on ? LED_OFF : LED_ON);
-  digitalWrite(YELLOW_LED_PIN, on ? LED_OFF : LED_ON);
-  digitalWrite(RED_LED_PIN, on ? LED_ON : LED_OFF);
-}
-
-
-static int16_t _steeringAngle_degreeToServoInput( int16_t angle )
-{
-  int16_t servoSignal;
-
-  if( angle > MAX_STEERING_ANGLE)         angle =   MAX_STEERING_ANGLE;
-  else if( angle < -MAX_STEERING_ANGLE)   angle = - MAX_STEERING_ANGLE;
-  servoSignal = angle * P1 + P2;
-
-  return ( int16_t ) servoSignal / FACTOR;
-}
-
-
-static int16_t _steeringAngle_ServoInputToDegree( int16_t servoSignal )
-{
-  int16_t angle = (int16_t)( servoSignal / P1 - P2 / P1 );
-
-  return angle;
-}
 
 
 void setup()
@@ -166,8 +135,8 @@ void setup()
   pinMode(YELLOW_LED_PIN, OUTPUT);
   pinMode(RED_LED_PIN, OUTPUT);
 
-   _isr_registry.init();
-  scheduler.init(&_isr_registry);
+  isr_registry.init();
+  scheduler.init(&isr_registry);
 
   ins.init(AP_InertialSensor::WARM_START, AP_InertialSensor::RATE_100HZ, delay, flash_leds, &scheduler);
   ins.init_gyro(delay, flash_leds);
@@ -175,87 +144,177 @@ void setup()
 
   IRsensors.init(IR_SENSORS_N, ir_inpus);
 
-  initRC(&_rcPPM, &_isr_registry);
+  rcPPM.Init( &isr_registry );
   servoSteering.attach(SERVO_INPUT);
   motorCtrl.initialize();
 
-  rosVal.steeringAngle = 0;
-  rosVal.speed = 0;
-
-  ir_msg.data_length = 5;
-  rc_msg.data_length = 6;
+  ir_msg.data_length = IR_SENSORS_N;
+  rc_msg.data_length =  RC_CHANNELS;
   ctrl_mtr_msg.data_length = 3;
+
+  _tmrMotionControl = micros();
+  _tmrInertialSensors = micros();
+  _tmrRangeSensor = micros();
+
 }
+
 
 
 void loop()
 {
-  if (_rcPPM.GetState() == true ) {
-    // updateRC( &_rcPPM, &refVal);
-    for(uint8_t rcCh = 0; rcCh < 6; ++rcCh){
-      rcVal[rcCh] = _rcPPM.InputCh(rcCh);
-    }
-    if( rcVal[4] > 1000){
-      inputVal.servo = map( rcVal[3], 980, 2035, 140, 60);
-      inputVal.speed = map( rcVal[1], 920, 2100, -80, 80);
-    }
-    else{
-      inputVal.servo =_steeringAngle_degreeToServoInput( (int16_t) rosVal.steeringAngle );
-      inputVal.speed = rosVal.speed;
-    }
-  }
-
-  if ( (millis() - lastMs.sensors) >=10){
-
-    Vector3f accel;
-    Vector3f gyro;
-    lastMs.sensors = millis();
-    ins.update();
-    IRsensors.update();
-
-    accel = ins.get_accel();
-    gyro = ins.get_gyro();
-
-    imu_msg.linear.x = accel.x;
-    imu_msg.linear.y = accel.y;
-    imu_msg.linear.z = accel.z;
-    imu_msg.angular.x = gyro.x;
-    imu_msg.angular.y = gyro.y;
-    imu_msg.angular.z = gyro.z;
-
-    pub_imu.publish(&imu_msg);
-
-    for(uint8_t irIndex; irIndex < IR_SENSORS_N; ++irIndex){
-      test[irIndex]  = IRsensors.getIR(irIndex);
-    }
-    ir_msg.data = (int*)test;
-    pub_ir.publish(&ir_msg);
-    IRsensors.print();
-  }
-
-
-  if ((millis() - lastMs.motor) >= 25) {
-
-    lastMs.motor = millis();
-    motorCtrl.updateSpeed(inputVal.speed);
-    servoSteering.write( inputVal.servo );
-
-    motor[0] = motorCtrl.getCountsEncoder( );
-    motor[1] = motorCtrl.getInputPID();
-    motor[2] = motorCtrl.getOutputPID();
-
-    ctrl_mtr_msg.data = motor;
-    rc_msg.data = (int*)rcVal;
-    odom_msg.encoderCounts = motor[0];
-    odom_msg.steeringAngle = inputVal.servo;
-    odom_msg.timestamp = nh.now();
-
-    pub_motor.publish(&ctrl_mtr_msg);
-    pub_rc.publish(&rc_msg);
-    pub_odom.publish(&odom_msg);
-     // motorCtrl.printInfoPID();
-  }
-
+  rcPPM_task( );
+  motionControl_task ( 24900 );
+  inertialSensors_task( 9900 );
+  rangeSensors_task( 9900 );
   nh.spinOnce();
+}
 
+
+
+static void rcPPM_task( )
+{
+  if( !rcPPM.GetState() ) { return; }
+
+  for(uint8_t rcCh = 0; rcCh < 6; ++rcCh){
+    rcVal[rcCh] = rcPPM.InputCh(rcCh);
+  }
+  if( rcVal[4] > 1000){
+    inputVal.servo = map( rcVal[3], 980, 2035, 140, 60);
+    inputVal.speed = map( rcVal[1], 920, 2100, -80, 80);
+  }
+  else{
+    inputVal.servo =_steeringAngle_degreeToServoInput( (int16_t) rosVal.steeringAngle );
+    inputVal.speed = rosVal.speed;
+  }
+#if SERIAL_DEBUG
+  Serial.println("rcPPM_task");
+#endif
+}
+
+
+static void inertialSensors_task( uint32_t const period )
+{
+  // Inertial sensors read rate to 100hz maximum. We use 10000us
+  // the read rate will end up at exactly 100hz because the Periodic Timer fires at 1khz
+  tnow = micros();
+  if (  tnow - _tmrInertialSensors < period ) {
+    return;
+  }
+  _tmrInertialSensors = tnow;
+
+  ins.update();
+  Vector3f const accel = ins.get_accel();
+  Vector3f const gyro = ins.get_gyro();
+
+  imu_msg.linear.x = accel.x;
+  imu_msg.linear.y = accel.y;
+  imu_msg.linear.z = accel.z;
+  imu_msg.angular.x = gyro.x;
+  imu_msg.angular.y = gyro.y;
+  imu_msg.angular.z = gyro.z;
+
+  pub_imu.publish(&imu_msg);
+#if SERIAL_DEBUG
+  Serial.print("IntertialSensors_task: ");
+#endif
+}
+
+
+static void rangeSensors_task( uint32_t const period )
+{
+  // range Sensor rate to 100hz maximum. We use 10000us
+  // the read rate will end up at exactly 100hz because the Periodic Timer fires at 1khz
+  tnow = micros();
+  if (  tnow - _tmrRangeSensor < period ) {
+    return;
+  }
+  _tmrRangeSensor = tnow;
+
+  IRsensors.update();
+  for(uint8_t irIndex; irIndex < IR_SENSORS_N; ++irIndex){
+    test[irIndex]  = IRsensors.getIR(irIndex);
+  }
+  ir_msg.data = (int*)test;
+  pub_ir.publish(&ir_msg);
+
+#if SERIAL_DEBUG
+  Serial.println("RangeSensors_task: ");
+  IRsensors.print();
+#endif
+}
+
+
+static void motionControl_task( uint32_t const period )
+{
+  // motion control rate to 40hz maximum. We use 25000us
+  // the read rate will end up at exactly 40hz because the Periodic Timer fires at 1khz
+  tnow = micros();
+  if (  tnow - _tmrMotionControl < period ) {
+    return;
+  }
+  _tmrMotionControl = tnow;
+  motorCtrl.updateSpeed( inputVal.speed );
+  servoSteering.write( inputVal.servo );
+  odom_msg.encoderCounts = motorCtrl.getDiffCounts( );
+  odom_msg.steeringAngle = _steeringAngle_ServoInputToDegree( inputVal.servo );
+  odom_msg.timestamp = nh.now();
+  pub_odom.publish(&odom_msg);
+
+  motor[0] = motorCtrl.getDiffCounts( );
+  motor[1] = motorCtrl.getAcumCounts( );
+  motor[2] = motorCtrl.getOutputPID( );
+  ctrl_mtr_msg.data = motor;
+  pub_motor.publish(&ctrl_mtr_msg);
+
+  rc_msg.data = (int*)rcVal;
+  pub_rc.publish(&rc_msg);
+
+#if SERIAL_DEBUG
+  Serial.println("motionControl_task: ");
+  motorCtrl.printInfoPID();
+#endif
+}
+
+
+static void servo_cb( const std_msgs::Int16& cmd_msg){
+  rosVal.steeringAngle = cmd_msg.data;
+}
+
+
+static void speed_cb( const std_msgs::Int16& cmd_msg){
+  rosVal.speed = cmd_msg.data;
+}
+
+
+static void flash_leds(bool on)
+{
+  digitalWrite(BLUE_LED_PIN, on ? LED_OFF : LED_ON);
+  digitalWrite(YELLOW_LED_PIN, on ? LED_OFF : LED_ON);
+  digitalWrite(RED_LED_PIN, on ? LED_ON : LED_OFF);
+}
+
+
+static int16_t _steeringAngle_degreeToServoInput( int16_t angle )
+{
+  int16_t servoSignal;
+
+  if( angle > MAX_STEERING_ANGLE)         angle =   MAX_STEERING_ANGLE;
+  else if( angle < -MAX_STEERING_ANGLE)   angle = - MAX_STEERING_ANGLE;
+  servoSignal = angle * P1 + P2;
+
+  return ( int16_t ) servoSignal / FACTOR;
+}
+
+
+static int16_t _steeringAngle_ServoInputToDegree( int16_t servoSignal )
+{
+  int16_t angle = (int16_t)( servoSignal / P1 - P2 / P1 );
+
+  return angle;
+}
+
+
+static int16_t _motor_countsToLinearMovement( int16_t counts )
+{
+  return counts;
 }
